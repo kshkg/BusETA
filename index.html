@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Bus ETA Information</title>
+  <style>
+    /* Center all elements */
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+      font-family: Arial, sans-serif;
+    }
+
+    h1, h2, p {
+      text-align: center;
+    }
+
+    table {
+      margin-top: 20px;
+    }
+
+    th, td {
+      padding: 8px;
+      text-align: center;
+    }
+  </style>
+  <script>
+    function fetchData() {
+      fetch('https://rt.data.gov.hk/v2/transport/citybus/eta/ctb/002616/952')
+        .then(response => response.json())
+        .then(data => {
+          if (data && data.data && data.data.length > 0) {
+            const etas = data.data;
+            const tableBody = document.getElementById('eta-table-body');
+            const lastUpdate = new Date(data.generated_timestamp);
+
+            // Clear any existing content
+            tableBody.innerHTML = '';
+
+            etas.forEach(eta => {
+              const etaTime = new Date(eta.eta);
+              const currentTime = new Date();
+              const timeDifference = Math.floor((etaTime - currentTime) / (1000 * 60)); // In minutes
+
+              // Create a new row in the table
+              const row = document.createElement('tr');
+
+              // Create table cells for the Destination, ETA, and Time Remaining
+              const destinationCell = document.createElement('td');
+              destinationCell.textContent = eta.dest_tc;
+              row.appendChild(destinationCell);
+
+              const etaCell = document.createElement('td');
+              etaCell.textContent = etaTime.toLocaleString();
+              row.appendChild(etaCell);
+
+              const timeRemainingCell = document.createElement('td');
+              timeRemainingCell.textContent = timeDifference >= 0 ? timeDifference + ' min' : 'N/A';
+              row.appendChild(timeRemainingCell);
+
+              tableBody.appendChild(row);
+            });
+
+            // Update the last update time
+            const lastUpdateElement = document.getElementById('last-update');
+            lastUpdateElement.textContent = lastUpdate.toLocaleString();
+          }
+        })
+        .catch(error => {
+          console.log('Error fetching data:', error);
+        });
+    }
+
+    // Function to fetch data initially and then refresh every 5 seconds
+    function autoRefreshData() {
+      fetchData();
+      setInterval(fetchData, 5000); // Refresh every 5 seconds (5000 milliseconds)
+    }
+
+    // Call the autoRefreshData function on page load
+    window.onload = autoRefreshData;
+  </script>
+</head>
+<body>
+  <h1>Bus ETA Information</h1>
+  <h2>Route: 952</h2>
+  <p>Last Update: <span id="last-update"></span></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Destination</th>
+        <th>ETA</th>
+        <th>Time Remaining</th>
+      </tr>
+    </thead>
+    <tbody id="eta-table-body"></tbody>
+  </table>
+</body>
+</html>

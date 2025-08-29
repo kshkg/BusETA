@@ -1,102 +1,221 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-HK">
 <head>
-  <title>Bus ETA Information</title>
+  <meta charset="UTF-8" />
+  <title>115及115P路線到站時間｜紅樂道 (合併列表)</title>
   <style>
-    /* Center all elements */
     body {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      min-height: 100vh;
-      margin: 0;
-      font-family: Arial, sans-serif;
+      font-family: "Microsoft JhengHei", "Heiti HK", Arial, sans-serif;
+      background: #f9f9f9;
+      padding: 2em;
+      max-width: 800px;
+      margin: auto;
     }
-
-    h1, h2, p {
+    #current-time {
+      font-size: 1.3em;
+      color: #1266af;
+      font-weight: bold;
+      margin-bottom: 1em;
       text-align: center;
     }
-
     table {
-      margin-top: 20px;
+      width: 100%;
+      border-collapse: collapse;
+      background: #fff;
+      box-shadow: 0 2px 6px #ccc;
+      border-radius: 8px;
+      overflow: hidden;
+      table-layout: fixed;
     }
-
     th, td {
-      padding: 8px;
+      padding: 0.75em 1em;
       text-align: center;
+      border-bottom: 1px solid #ddd;
+      font-size: 1em;
+      word-wrap: break-word;
+    }
+    th {
+      background-color: #1266af;
+      color: white;
+    }
+    tbody tr:hover {
+      background-color: #f0f8ff;
+    }
+    .remark {
+      color: #cc3300;
+      font-weight: bold;
+      font-size: 0.9em;
+      white-space: normal;
+    }
+    .company-cell {
+      font-weight: bold;
+      color: #0099cc;
+    }
+    .countdown {
+      color: #666;
+    }
+    .updated {
+      font-size: 0.8em;
+      color: #888;
+      margin-top: 1em;
+      text-align: right;
     }
   </style>
-  <script>
-    function fetchData() {
-      fetch('https://rt.data.gov.hk/v2/transport/citybus/eta/ctb/002616/952')
-        .then(response => response.json())
-        .then(data => {
-          if (data && data.data && data.data.length > 0) {
-            const etas = data.data;
-            const tableBody = document.getElementById('eta-table-body');
-            const lastUpdate = new Date(data.generated_timestamp);
-
-            // Clear any existing content
-            tableBody.innerHTML = '';
-
-            etas.forEach(eta => {
-              const etaTime = new Date(eta.eta);
-              const currentTime = new Date();
-              const timeDifference = Math.floor((etaTime - currentTime) / (1000 * 60)); // In minutes
-
-              // Create a new row in the table
-              const row = document.createElement('tr');
-
-              // Create table cells for the Destination, ETA, and Time Remaining
-              const destinationCell = document.createElement('td');
-              destinationCell.textContent = eta.dest_tc;
-              row.appendChild(destinationCell);
-
-              const etaCell = document.createElement('td');
-              etaCell.textContent = etaTime.toLocaleString();
-              row.appendChild(etaCell);
-
-              const timeRemainingCell = document.createElement('td');
-              timeRemainingCell.textContent = timeDifference >= 0 ? timeDifference + ' min' : 'N/A';
-              row.appendChild(timeRemainingCell);
-
-              tableBody.appendChild(row);
-            });
-
-            // Update the last update time
-            const lastUpdateElement = document.getElementById('last-update');
-            lastUpdateElement.textContent = lastUpdate.toLocaleString();
-          }
-        })
-        .catch(error => {
-          console.log('Error fetching data:', error);
-        });
-    }
-
-    // Function to fetch data initially and then refresh every 5 seconds
-    function autoRefreshData() {
-      fetchData();
-      setInterval(fetchData, 5000); // Refresh every 5 seconds (5000 milliseconds)
-    }
-
-    // Call the autoRefreshData function on page load
-    window.onload = autoRefreshData;
-  </script>
 </head>
 <body>
-  <h1>Bus ETA Information</h1>
-  <h2>Route: 952</h2>
-  <p>Last Update: <span id="last-update"></span></p>
-  <table>
+  <div id="current-time">載入香港時間...</div>
+
+  <table aria-label="115及115P路線到站時間合併列表" role="table" id="merged-table">
     <thead>
       <tr>
-        <th>Destination</th>
-        <th>ETA</th>
-        <th>Time Remaining</th>
+        <th>公司</th>
+        <th>路線</th>
+        <th>預計到站時間</th>
+        <th>倒數</th>
+        <th>目的地</th>
+        <th>備註</th>
       </tr>
     </thead>
-    <tbody id="eta-table-body"></tbody>
+    <tbody id="merged-tbody">
+      <tr><td colspan="6">載入中...</td></tr>
+    </tbody>
   </table>
+  <div class="updated" id="updated-time"></div>
+
+  <script>
+    function formatTimeFull(dt) {
+      const t = new Date(dt);
+      return `${t.getHours().toString().padStart(2,"0")}:${t.getMinutes().toString().padStart(2,"0")}:${t.getSeconds().toString().padStart(2,"0")}`;
+    }
+    function formatTime(dt) {
+      const t = new Date(dt);
+      return `${t.getHours().toString().padStart(2,"0")}:${t.getMinutes().toString().padStart(2,"0")}`;
+    }
+    function getCountdownMinutes(eta) {
+      const now = new Date();
+      const etaDate = new Date(eta);
+      const diff = (etaDate - now) / 60000;
+      return diff > 0 ? diff : 0;
+    }
+    function formatCountdown(minutes) {
+      if (minutes <= 1 && minutes > 0) return "即將到達";
+      if (minutes === 0) return "已離站";
+      return Math.floor(minutes) + "分鐘後";
+    }
+
+    const currentTimeDiv = document.getElementById("current-time");
+    const mergedTbody = document.getElementById("merged-tbody");
+    const updatedTimeDiv = document.getElementById("updated-time");
+
+    function updateHKTime() {
+      const now = new Date();
+      const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+      const hkTime = new Date(utc + 3600000 * 8);
+      currentTimeDiv.textContent = "香港時間: " + formatTimeFull(hkTime);
+    }
+
+    setInterval(updateHKTime, 1000);
+    updateHKTime();
+
+    async function fetchCitybusETAForRoute(route) {
+      const url = `https://rt.data.gov.hk/v2/transport/citybus/eta/ctb/003269/${route}`;
+      try {
+        const res = await fetch(url);
+        const json = await res.json();
+        let data = json.data || [];
+        data = data.filter(bus => bus.rmk_tc !== "九巴時段");
+        return data.map(bus => ({
+          company: "城巴",
+          route: route,
+          eta: bus.eta || null,
+          dest: bus.dest_tc || "",
+          remark: bus.rmk_tc || ""
+        }));
+      } catch {
+        return null;
+      }
+    }
+
+    async function fetchKmbETAForRoute(route) {
+      // Using the same stop ID and direction, different route param
+      const url = `https://data.etabus.gov.hk/v1/transport/kmb/eta/36F7DCE4723C2C44/${route}/1`;
+      try {
+        const res = await fetch(url);
+        const json = await res.json();
+        let data = json.data || [];
+        return data.map(bus => ({
+          company: "九巴",
+          route: route,
+          eta: bus.eta || null,
+          dest: bus.dest_tc || "",
+          remark: bus.rmk_tc || ""
+        }));
+      } catch {
+        return null;
+      }
+    }
+
+    function renderMergedTable(data) {
+      if (!data) {
+        mergedTbody.innerHTML = `<tr><td colspan="6">無法載入資料。</td></tr>`;
+        return;
+      }
+      if (data.length === 0) {
+        mergedTbody.innerHTML = `<tr><td colspan="6">暫無即將到站班次。</td></tr>`;
+        return;
+      }
+      const rowsHtml = data.map(bus => {
+        if (!bus.eta) {
+          return `
+          <tr>
+            <td class="company-cell">${bus.company}</td>
+            <td>${bus.route}</td>
+            <td>暫無到站資料</td>
+            <td>—</td>
+            <td>${bus.dest}</td>
+            <td><span class="remark">${bus.remark}</span></td>
+          </tr>`;
+        }
+        const etaTime = formatTime(bus.eta);
+        const countdown = formatCountdown(getCountdownMinutes(bus.eta));
+        return `
+          <tr>
+            <td class="company-cell">${bus.company}</td>
+            <td>${bus.route}</td>
+            <td>${etaTime}</td>
+            <td class="countdown">${countdown}</td>
+            <td>${bus.dest}</td>
+            <td><span class="remark">${bus.remark}</span></td>
+          </tr>`;
+      }).join("");
+      mergedTbody.innerHTML = rowsHtml;
+    }
+
+    async function refreshAll() {
+      const citybus115Data = await fetchCitybusETAForRoute("115");
+      const citybus115PData = await fetchCitybusETAForRoute("115P");
+      const kmb115Data = await fetchKmbETAForRoute("115");
+      const kmb115PData = await fetchKmbETAForRoute("115P");
+
+      const combined = []
+        .concat(citybus115Data || [])
+        .concat(citybus115PData || [])
+        .concat(kmb115Data || [])
+        .concat(kmb115PData || []);
+
+      combined.sort((a, b) => {
+        if (!a.eta && !b.eta) return 0;
+        if (!a.eta) return 1;
+        if (!b.eta) return -1;
+        return new Date(a.eta) - new Date(b.eta);
+      });
+
+      renderMergedTable(combined);
+      updatedTimeDiv.textContent = "資料最後更新: " + formatTimeFull(new Date());
+    }
+
+    refreshAll();
+    setInterval(refreshAll, 10000);
+  </script>
 </body>
 </html>

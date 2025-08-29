@@ -3,68 +3,126 @@
 <head>
   <meta charset="UTF-8" />
   <title>115及115P路線到站時間｜紅樂道 (合併列表)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
-    body {
+    html, body {
+      height: 100%;
+      margin: 0;
       font-family: "Microsoft JhengHei", "Heiti HK", Arial, sans-serif;
       background: #f9f9f9;
-      padding: 2em;
-      max-width: 800px;
-      margin: auto;
+      color: #333;
+      line-height: 1.4;
+      -webkit-text-size-adjust: 100%;
+      -moz-text-size-adjust: 100%;
+      -ms-text-size-adjust: 100%;
+      text-size-adjust: 100%;
     }
     #current-time {
-      font-size: 1.3em;
+      font-size: 1.4em;
       color: #1266af;
       font-weight: bold;
-      margin-bottom: 1em;
+      margin: 1rem auto;
       text-align: center;
+      max-width: 95vw;
+      word-break: break-word;
     }
-    table {
+    #merged-table {
       width: 100%;
+      max-width: 100vw;
       border-collapse: collapse;
       background: #fff;
-      box-shadow: 0 2px 6px #ccc;
       border-radius: 8px;
-      overflow: hidden;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      overflow-x: auto;
+      display: block;
+      -webkit-overflow-scrolling: touch;
+    }
+    table thead tr {
+      background-color: #1266af;
+      color: #fff;
+      display: table;
+      width: 100%;
       table-layout: fixed;
     }
-    th, td {
-      padding: 0.75em 1em;
-      text-align: center;
-      border-bottom: 1px solid #ddd;
-      font-size: 1em;
-      word-wrap: break-word;
+    #merged-table tbody {
+      display: block;
+      max-height: 60vh;
+      overflow-y: auto;
+      width: 100%;
     }
-    th {
-      background-color: #1266af;
-      color: white;
+    #merged-table tbody tr {
+      display: table;
+      width: 100%;
+      table-layout: fixed;
+      border-bottom: 1px solid #ddd;
+      word-break: break-word;
+    }
+    th, td {
+      padding: 0.7em 0.9em;
+      text-align: center;
+      font-size: 1rem;
+      border-right: 1px solid #ddd;
+      vertical-align: middle;
+    }
+    th:last-child, td:last-child {
+      border-right: none;
     }
     tbody tr:hover {
       background-color: #f0f8ff;
     }
-    .remark {
-      color: #cc3300;
-      font-weight: bold;
-      font-size: 0.9em;
-      white-space: normal;
-    }
     .company-cell {
-      font-weight: bold;
+      font-weight: 700;
       color: #0099cc;
+      white-space: nowrap;
     }
     .countdown {
       color: #666;
     }
+    .remark {
+      color: #cc3300;
+      font-weight: 600;
+      font-size: 0.9em;
+      white-space: normal;
+      word-wrap: break-word;
+    }
     .updated {
-      font-size: 0.8em;
+      font-size: 0.85em;
       color: #888;
       margin-top: 1em;
       text-align: right;
+      max-width: 95vw;
+      word-break: break-word;
+    }
+
+    /* Scrollbar styling for modern browsers */
+    #merged-table tbody::-webkit-scrollbar {
+      width: 6px;
+    }
+    #merged-table tbody::-webkit-scrollbar-thumb {
+      background-color: rgba(0,0,0,0.1);
+      border-radius: 3px;
+    }
+
+    @media screen and (max-width: 600px) {
+      th, td {
+        padding: 0.5em 0.7em;
+        font-size: 0.9rem;
+      }
+      #current-time {
+        font-size: 1.2em;
+        margin: 1rem 0.5rem;
+      }
+      .remark {
+        font-size: 0.8em;
+      }
+      #merged-table tbody {
+        max-height: 50vh;
+      }
     }
   </style>
 </head>
 <body>
   <div id="current-time">載入香港時間...</div>
-
   <table aria-label="115及115P路線到站時間合併列表" role="table" id="merged-table">
     <thead>
       <tr>
@@ -114,19 +172,17 @@
       currentTimeDiv.textContent = "香港時間: " + formatTimeFull(hkTime);
     }
 
-    setInterval(updateHKTime, 1000);
-    updateHKTime();
-
     async function fetchCitybusETAForRoute(route) {
       const url = `https://rt.data.gov.hk/v2/transport/citybus/eta/ctb/003269/${route}`;
       try {
         const res = await fetch(url);
         const json = await res.json();
         let data = json.data || [];
+        // exclude entries with remark "九巴時段"
         data = data.filter(bus => bus.rmk_tc !== "九巴時段");
         return data.map(bus => ({
           company: "城巴",
-          route: route,
+          route,
           eta: bus.eta || null,
           dest: bus.dest_tc || "",
           remark: bus.rmk_tc || ""
@@ -137,7 +193,6 @@
     }
 
     async function fetchKmbETAForRoute(route) {
-      // Using the same stop ID and direction, different route param
       const url = `https://data.etabus.gov.hk/v1/transport/kmb/eta/36F7DCE4723C2C44/${route}/1`;
       try {
         const res = await fetch(url);
@@ -145,7 +200,7 @@
         let data = json.data || [];
         return data.map(bus => ({
           company: "九巴",
-          route: route,
+          route,
           eta: bus.eta || null,
           dest: bus.dest_tc || "",
           remark: bus.rmk_tc || ""
@@ -167,26 +222,26 @@
       const rowsHtml = data.map(bus => {
         if (!bus.eta) {
           return `
-          <tr>
-            <td class="company-cell">${bus.company}</td>
-            <td>${bus.route}</td>
-            <td>暫無到站資料</td>
-            <td>—</td>
-            <td>${bus.dest}</td>
-            <td><span class="remark">${bus.remark}</span></td>
-          </tr>`;
+            <tr>
+              <td class="company-cell">${bus.company}</td>
+              <td>${bus.route}</td>
+              <td>暫無到站資料</td>
+              <td>—</td>
+              <td>${bus.dest}</td>
+              <td><span class="remark">${bus.remark}</span></td>
+            </tr>`;
         }
         const etaTime = formatTime(bus.eta);
         const countdown = formatCountdown(getCountdownMinutes(bus.eta));
         return `
-          <tr>
-            <td class="company-cell">${bus.company}</td>
-            <td>${bus.route}</td>
-            <td>${etaTime}</td>
-            <td class="countdown">${countdown}</td>
-            <td>${bus.dest}</td>
-            <td><span class="remark">${bus.remark}</span></td>
-          </tr>`;
+            <tr>
+              <td class="company-cell">${bus.company}</td>
+              <td>${bus.route}</td>
+              <td>${etaTime}</td>
+              <td class="countdown">${countdown}</td>
+              <td>${bus.dest}</td>
+              <td><span class="remark">${bus.remark}</span></td>
+            </tr>`;
       }).join("");
       mergedTbody.innerHTML = rowsHtml;
     }
@@ -214,7 +269,9 @@
       updatedTimeDiv.textContent = "資料最後更新: " + formatTimeFull(new Date());
     }
 
+    updateHKTime();
     refreshAll();
+    setInterval(updateHKTime, 1000);
     setInterval(refreshAll, 10000);
   </script>
 </body>
